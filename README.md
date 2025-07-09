@@ -1,2 +1,2 @@
 # ciwmaint
-DES maintenance model w CIW library (pithon)
+DES maintenance model w CIW library (python)
