@@ -1,50 +1,40 @@
 import ciw
-import pandas as pd
-import numpy as np
+#import pandas as pd
+#import numpy as np
 
-#in questo primo esempio costruiamo un network con
-#- 4 macchine in serie con un MTTF di (i+1)*100 minuti e un MTTR di 10/(i+1)
-#- 2 categorie di prodotti di priorità 2 - FIFO
-#    ° "prodotto A" ha un ciclo macchina [2, 3, 0, 1]
-#    ° "prodotto B" ha un ciclo macchina [0, 1, 2, 3]
-#- 1 categorie di di entità "manutenzione"
-#    ° "breakdown" ha priorità 1 e valore MTTR, avviene ogni MTTF come definito sopra
-#
-#I valori plottati sono:
-#...
-#
-## prodotto A tot 12
-## 0 - 2
-## 1 - 2.66
-## 2 - 3.33
-## 3 - 4
-#
-## prodotto B tot 11
-## 0 - 1
-## 1 - 2.5
-## 2 - 3
-## 3 - 4.5
+#parameters definition ==========================================================================================
+interarrival_A = 45
+interarrival_B = 50
 
-#itera sulla lunghezza delle macchine e metti none tutte le volte che l'indice non è quello del primo elemento.
-#non serve un "else" perché tanto genera tutto comunque
+route_A = [2, 3, 0, 1]
+route_B = [0, 1, 2, 3]
+
+num_machines = len(set(route_A+route_B))
+
+MTTF = [100*(i+1)**(1/2) for i in range(num_machines)]
+MTTR = [10/(i+1) for i in range(num_machines)]
+MTBF = [sum(x) for x in zip(MTTF, MTTR)]
+
+#dictionary definition ==========================================================================================
+#WARN approximation about the MTBF for the maintenance in arrival dictionary
+
+#arrivals dictionary
 dict_arrivals = {
-        'Product_A': [
-            None,
-            None,
-            ciw.dists.Exponential(rate=60/50),
-            None
-        ], 'Product_B': [
-            ciw.dists.Exponential(rate=60/55),
-            None,
-            None,
-            None
-        ]
+    'Product_A': [ciw.dists.Exponential(rate=60/interarrival_A) if route_A[0] == i else None for i in range(num_machines)], 
+    'Product_B': [ciw.dists.Exponential(rate=60/interarrival_B) if route_B[0] == i else None for i in range(num_machines)],
+    'maint' : [ciw.dists.Exponential(rate=60/MTBF[i]) for i in range(num_machines)]
 }
 
-
+#service dictionary
 dict_services = {
-    'Product_A': [ciw.dists.Exponential(rate=60/(2*i/3 + 2)) for i in range(4)],
-    'Product_B': [ciw.dists.Exponential(rate=60/(3*i/2 + 1)) for i in range(4)]
+    'Product_A': [ciw.dists.Exponential(rate=60/(2*i/3 + 2)) for i in range(num_machines)],
+    'Product_B': [ciw.dists.Exponential(rate=60/(3*i/2 + 1)) for i in range(num_machines)],
+    'maint' : [ciw.dists.Exponential(rate=60/MTTR[i]) for i in range(num_machines)]
 }
 
-#per il route: lista di liste per la matrice - ciclo for di list comprehension
+#routing (maintenance does not have a route) (FLOATS ONLY)
+dict_routing = {
+    'Product_A' : [[1.0 if (i, j) in list(zip(route_A, route_A[1:])) else 0.0 for j in range(num_machines)] for i in range(num_machines)],
+    'Product_B' : [[1.0 if (i, j) in list(zip(route_B, route_B[1:])) else 0.0 for j in range(num_machines)] for i in range(num_machines)],
+    'maint' : [[0.0 for _ in range(num_machines)] for _ in range(num_machines)]
+}
